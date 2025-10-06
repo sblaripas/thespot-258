@@ -26,3 +26,21 @@ export async function createClient() {
     },
   })
 }
+
+/**
+ * Create a Supabase client with service role privileges
+ * Use this ONLY for operations that need to bypass RLS (e.g., public reads)
+ * WARNING: Never expose this client to the frontend
+ */
+export function createServiceClient() {
+  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+    cookies: {
+      getAll() {
+        return []
+      },
+      setAll() {
+        // No-op for service client
+      },
+    },
+  })
+}
