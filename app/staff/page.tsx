@@ -3,13 +3,14 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
-import { QrCode, Plus, Users, LogOut } from "lucide-react"
+import { QrCode, Plus, Users, LogOut, LayoutDashboard } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import { useRouter } from "next/navigation"
 
@@ -55,7 +56,6 @@ export default function StaffPage() {
         return
       }
 
-      // Check for stored staff user
       const storedUser = localStorage.getItem("staff_user")
       if (storedUser) {
         setLoggedInUser(JSON.parse(storedUser))
@@ -126,13 +126,33 @@ export default function StaffPage() {
     router.push("/auth/login")
   }
 
+  const goToDashboard = () => {
+    if (!loggedInUser) return
+
+    switch (loggedInUser.role) {
+      case "waiter":
+        router.push("/dashboard/waiter")
+        break
+      case "barman":
+        router.push("/dashboard/bartender")
+        break
+      case "admin":
+        router.push("/dashboard/manager")
+        break
+      default:
+        break
+    }
+  }
+
   if (!loggedInUser) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-card">
         <header className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm border-b border-border header-glow">
           <div className="container mx-auto px-4 py-4">
             <div className="flex flex-col items-center">
-              <Image src="/the-spot-logo.png" alt="The Spot Logo" width={250} height={100} className="h-12 w-auto" />
+              <Link href="/" className="transition-transform hover:scale-110 duration-300 cursor-pointer">
+                <Image src="/the-spot-logo.png" alt="The Spot Logo" width={350} height={140} className="h-20 w-auto" />
+              </Link>
               <p className="text-muted-foreground mt-1">Staff Portal</p>
             </div>
           </div>
@@ -188,7 +208,9 @@ export default function StaffPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Image src="/the-spot-logo.png" alt="The Spot Logo" width={200} height={80} className="h-10 w-auto" />
+              <Link href="/" className="transition-transform hover:scale-110 duration-300 cursor-pointer">
+                <Image src="/the-spot-logo.png" alt="The Spot Logo" width={280} height={112} className="h-16 w-auto" />
+              </Link>
               <div>
                 <p className="text-muted-foreground">Welcome, {loggedInUser.name}</p>
               </div>
@@ -203,6 +225,22 @@ export default function StaffPage() {
 
       <main className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {(loggedInUser.role === "waiter" || loggedInUser.role === "barman" || loggedInUser.role === "admin") && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LayoutDashboard className="w-6 h-6" />
+                  My Dashboard
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button className="w-full" onClick={goToDashboard}>
+                  Go to Dashboard
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Role-specific actions */}
           {loggedInUser.role === "teller" && (
             <Card>
@@ -258,7 +296,6 @@ export default function StaffPage() {
             </Card>
           )}
 
-          {/* Common staff actions */}
           <Card>
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
@@ -274,6 +311,15 @@ export default function StaffPage() {
                     onClick={() => (window.location.href = "/pos")}
                   >
                     POS System
+                  </Button>
+                )}
+                {(loggedInUser.role === "waiter" || loggedInUser.role === "admin") && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start bg-transparent"
+                    onClick={() => (window.location.href = "/tables")}
+                  >
+                    Table Management
                   </Button>
                 )}
                 {loggedInUser.role === "admin" && (

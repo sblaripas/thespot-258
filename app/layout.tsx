@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Playfair_Display } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
+import { LanguageProvider } from "@/lib/i18n/language-context"
 import "./globals.css"
 
 const playfair = Playfair_Display({
@@ -27,8 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} ${playfair.variable}`}>
-        <Suspense fallback={null}>{children}</Suspense>
-        <Analytics />
+        <LanguageProvider>
+          <Suspense fallback={null}>{children}</Suspense>
+          <Analytics />
+        </LanguageProvider>
       </body>
     </html>
   )
