@@ -15,47 +15,25 @@ import { QRCodeSVG } from "qrcode.react"
 import { useRouter } from "next/navigation"
 
 interface StaffUser {
+  id: string
   phone: string
   name: string
   role: string
-  otp: string
 }
-
-const staffUsers: StaffUser[] = [
-  // Tellers
-  { phone: "8212345678", name: "Ana", role: "teller", otp: "123456" },
-  { phone: "8412345678", name: "Joana", role: "teller", otp: "123456" },
-  { phone: "8712345678", name: "Maria", role: "teller", otp: "123456" },
-  // Bar/Waiters
-  { phone: "8222345678", name: "Hyuta", role: "barman", otp: "223456" },
-  { phone: "8422345678", name: "Keny", role: "waiter", otp: "223456" },
-  { phone: "8722345678", name: "Tiago", role: "waiter", otp: "223456" },
-  // Admins
-  { phone: "8232345678", name: "Yanick", role: "admin", otp: "323456" },
-  { phone: "8432345678", name: "Dany", role: "admin", otp: "323456" },
-  { phone: "8732345678", name: "Laripas", role: "admin", otp: "323456" },
-]
 
 export default function StaffPage() {
   const [phone, setPhone] = useState("")
-  const [otp, setOtp] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loggedInUser, setLoggedInUser] = useState<StaffUser | null>(null)
   const [generatedVoucher, setGeneratedVoucher] = useState<{ id: string; qr_code: string; amount: number } | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
     const checkAuth = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        router.push("/auth/login")
-        return
-      }
-
       const storedUser = localStorage.getItem("staff_user")
       if (storedUser) {
         setLoggedInUser(JSON.parse(storedUser))
@@ -63,18 +41,41 @@ export default function StaffPage() {
     }
 
     checkAuth()
-  }, [supabase, router])
+  }, [])
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setIsLoading(true)
 
-    const user = staffUsers.find((u) => u.phone === phone && u.otp === otp)
-    if (user) {
-      setLoggedInUser(user)
-      localStorage.setItem("staff_user", JSON.stringify(user))
-    } else {
-      setError("Invalid phone number or OTP")
+    try {
+      const { data: users, error: queryError } = await supabase
+        .from("users")
+        .select("id, phone, name, role")
+        .eq("phone", phone)
+        .eq("password", password)
+        .single()
+
+      if (queryError || !users) {
+        setError("Invalid phone number or password")
+        setIsLoading(false)
+        return
+      }
+
+      const staffUser: StaffUser = {
+        id: users.id,
+        phone: users.phone,
+        name: users.name,
+        role: users.role,
+      }
+
+      setLoggedInUser(staffUser)
+      localStorage.setItem("staff_user", JSON.stringify(staffUser))
+    } catch (error) {
+      console.error("Login error:", error)
+      setError("An error occurred during login")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -117,11 +118,10 @@ export default function StaffPage() {
   }
 
   const logout = async () => {
-    await supabase.auth.signOut()
     setLoggedInUser(null)
     setGeneratedVoucher(null)
     setPhone("")
-    setOtp("")
+    setPassword("")
     localStorage.removeItem("staff_user")
     router.push("/auth/login")
   }
@@ -180,19 +180,19 @@ export default function StaffPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="otp">OTP Code</Label>
+                  <Label htmlFor="password">Password</Label>
                   <Input
                     type="password"
-                    id="otp"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    placeholder="Enter OTP"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter password"
                     required
                   />
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
-                <Button type="submit" className="w-full">
-                  Login
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Logging in..." : "Login"}
                 </Button>
               </form>
             </CardContent>
@@ -241,7 +241,6 @@ export default function StaffPage() {
             </Card>
           )}
 
-          {/* Role-specific actions */}
           {loggedInUser.role === "teller" && (
             <Card>
               <CardHeader>
