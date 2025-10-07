@@ -7,12 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export default function Page() {
-  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -25,14 +24,20 @@ export default function Page() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-        options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/staff`,
-        },
-      })
-      if (error) throw error
+      const { data: user, error: dbError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("phone", phone)
+        .eq("password", password)
+        .single()
+
+      if (dbError || !user) {
+        throw new Error("Invalid phone number or password")
+      }
+
+      // Store user info in localStorage for session management
+      localStorage.setItem("staff_user", JSON.stringify(user))
+
       router.push("/staff")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
@@ -64,14 +69,14 @@ export default function Page() {
                 <form onSubmit={handleLogin}>
                   <div className="flex flex-col gap-6">
                     <div className="grid gap-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="phone">Phone Number</Label>
                       <Input
-                        id="email"
-                        type="email"
-                        placeholder="staff@thespot.mz"
+                        id="phone"
+                        type="tel"
+                        placeholder="+258 84 123 4567"
                         required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
                       />
                     </div>
                     <div className="grid gap-2">
@@ -88,12 +93,6 @@ export default function Page() {
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading ? "Logging in..." : "Login"}
                     </Button>
-                  </div>
-                  <div className="mt-4 text-center text-sm">
-                    Don&apos;t have an account?{" "}
-                    <Link href="/auth/sign-up" className="underline underline-offset-4">
-                      Sign up
-                    </Link>
                   </div>
                 </form>
               </CardContent>
