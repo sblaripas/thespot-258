@@ -26,7 +26,7 @@ This section documents the exact prompts and interactions that led to the creati
 **User Prompt:**
 
 ```
-1. based on this generate a dummy ts file , where i can see orders that have happened from last week until the present date today october 13.2025 ( a  full week duration) show me on each day that has taken place :  different hours, different orders. avoid using  functions , because this is supposed to be a payload.
+1. based on this  generate a dummy ts file , where i can see orders that have happened from last week until the present date today october 13.2025 ( a  full week duration) show me on each day that has taken place :  different hours, different orders. avoid using  functions , because this is supposed to be a payload.
 
 2.create the components based on this schema for a restaurant where the waiter can fetch the  orders by table and see the orders and totals etc ... and one that the customers can also see their orders and menu
 
