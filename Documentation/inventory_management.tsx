@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Package, Plus, Search, AlertTriangle, Edit2, Trash2, 
-  Save, X, Archive, CheckCircle, XCircle, DollarSign
+  Save, X, Archive, CheckCircle, XCircle, DollarSign, Percent, Tag
 } from 'lucide-react';
 
 interface MenuItem {
@@ -12,6 +12,8 @@ interface MenuItem {
   size?: string;
   price: number;
   cost?: number;
+  discountPrice?: number;
+  showDiscountOnMenu: boolean;
   stockCount: number;
   lowStockThreshold: number;
   available: boolean;
@@ -32,12 +34,12 @@ interface Notification {
 }
 
 const initialMenuData: MenuItem[] = [
-  { id: '1', name: "2M", category: "CERVEJAS", size: "550ml", price: 130, cost: 80, stockCount: 45, lowStockThreshold: 10, available: true, inStock: true, lastUpdated: new Date().toISOString() },
-  { id: '2', name: "2M Txoti", category: "CERVEJAS", size: "250ml", price: 120, cost: 75, stockCount: 8, lowStockThreshold: 10, available: true, inStock: true, lastUpdated: new Date().toISOString() },
-  { id: '3', name: "HEINEKEN", category: "CERVEJAS", size: "210ml", price: 130, cost: 85, stockCount: 30, lowStockThreshold: 15, available: true, inStock: true, lastUpdated: new Date().toISOString() },
-  { id: '4', name: "FLYING FISH", category: "CIDRAS", price: 150, cost: 95, stockCount: 20, lowStockThreshold: 10, available: true, inStock: true, lastUpdated: new Date().toISOString() },
-  { id: '5', name: "CAIPIRINHA DE LIMÃO", category: "COCKTAILS", price: 250, cost: 120, stockCount: 0, lowStockThreshold: 5, available: false, inStock: false, lastUpdated: new Date().toISOString() },
-  { id: '6', name: "GIN & TONIC", category: "COCKTAILS", price: 380, cost: 200, stockCount: 15, lowStockThreshold: 8, available: true, inStock: true, lastUpdated: new Date().toISOString() },
+  { id: '1', name: "2M", category: "CERVEJAS", size: "550ml", price: 130, cost: 80, discountPrice: 110, showDiscountOnMenu: true, stockCount: 45, lowStockThreshold: 10, available: true, inStock: true, lastUpdated: new Date().toISOString() },
+  { id: '2', name: "2M Txoti", category: "CERVEJAS", size: "250ml", price: 120, cost: 75, showDiscountOnMenu: false, stockCount: 8, lowStockThreshold: 10, available: true, inStock: true, lastUpdated: new Date().toISOString() },
+  { id: '3', name: "HEINEKEN", category: "CERVEJAS", size: "210ml", price: 130, cost: 85, discountPrice: 115, showDiscountOnMenu: true, stockCount: 30, lowStockThreshold: 15, available: true, inStock: true, lastUpdated: new Date().toISOString() },
+  { id: '4', name: "FLYING FISH", category: "CIDRAS", price: 150, cost: 95, stockCount: 20, lowStockThreshold: 10, available: true, inStock: true, showDiscountOnMenu: false, lastUpdated: new Date().toISOString() },
+  { id: '5', name: "CAIPIRINHA DE LIMÃO", category: "COCKTAILS", price: 250, cost: 120, stockCount: 0, lowStockThreshold: 5, available: false, inStock: false, showDiscountOnMenu: false, lastUpdated: new Date().toISOString() },
+  { id: '6', name: "GIN & TONIC", category: "COCKTAILS", price: 380, cost: 200, discountPrice: 320, showDiscountOnMenu: true, stockCount: 15, lowStockThreshold: 8, available: true, inStock: true, lastUpdated: new Date().toISOString() },
 ];
 
 const InventoryManagement: React.FC = () => {
@@ -56,6 +58,8 @@ const InventoryManagement: React.FC = () => {
     size: '',
     price: 0,
     cost: 0,
+    discountPrice: undefined,
+    showDiscountOnMenu: false,
     stockCount: 0,
     lowStockThreshold: 10,
     available: true,
@@ -106,6 +110,7 @@ const InventoryManagement: React.FC = () => {
     lowStock: inventory.filter(i => i.inStock && i.stockCount > 0 && i.stockCount <= i.lowStockThreshold).length,
     outOfStock: inventory.filter(i => !i.inStock || i.stockCount === 0).length,
     totalValue: inventory.reduce((sum, i) => sum + (i.stockCount * (i.cost || 0)), 0),
+    itemsWithDiscounts: inventory.filter(i => i.discountPrice && i.showDiscountOnMenu).length,
   };
 
   const handleCreateItem = () => {
@@ -122,6 +127,8 @@ const InventoryManagement: React.FC = () => {
       size: formData.size,
       price: formData.price || 0,
       cost: formData.cost || 0,
+      discountPrice: formData.discountPrice,
+      showDiscountOnMenu: formData.showDiscountOnMenu ?? false,
       stockCount: formData.stockCount || 0,
       lowStockThreshold: formData.lowStockThreshold || 10,
       available: formData.available ?? true,
@@ -149,6 +156,8 @@ const InventoryManagement: React.FC = () => {
       size: formData.size,
       price: formData.price || 0,
       cost: formData.cost || 0,
+      discountPrice: formData.discountPrice,
+      showDiscountOnMenu: formData.showDiscountOnMenu ?? false,
       stockCount: formData.stockCount || 0,
       lowStockThreshold: formData.lowStockThreshold || 10,
       available: formData.available ?? true,
@@ -182,6 +191,8 @@ const InventoryManagement: React.FC = () => {
       size: item.size || '',
       price: item.price,
       cost: item.cost || 0,
+      discountPrice: item.discountPrice,
+      showDiscountOnMenu: item.showDiscountOnMenu,
       stockCount: item.stockCount,
       lowStockThreshold: item.lowStockThreshold,
       available: item.available,
@@ -231,6 +242,8 @@ const InventoryManagement: React.FC = () => {
       size: '',
       price: 0,
       cost: 0,
+      discountPrice: undefined,
+      showDiscountOnMenu: false,
       stockCount: 0,
       lowStockThreshold: 10,
       available: true,
@@ -244,6 +257,10 @@ const InventoryManagement: React.FC = () => {
     if (!item.inStock || item.stockCount === 0) return { label: 'Out', color: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/30' };
     if (item.stockCount <= item.lowStockThreshold) return { label: 'Low', color: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/30' };
     return { label: 'OK', color: 'text-emerald-400', bg: 'bg-emerald-500/20', border: 'border-emerald-500/30' };
+  };
+
+  const calculateDiscountPercentage = (price: number, discountPrice: number) => {
+    return ((price - discountPrice) / price * 100).toFixed(0);
   };
 
   return (
@@ -279,7 +296,7 @@ const InventoryManagement: React.FC = () => {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-white">Inventory</h1>
-                  <p className="text-slate-400 text-xs">Stock Management</p>
+                  <p className="text-slate-400 text-xs">Stock Management & Discounts</p>
                 </div>
               </div>
               <button
@@ -295,7 +312,7 @@ const InventoryManagement: React.FC = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-5 gap-2 mb-4">
+            <div className="grid grid-cols-6 gap-2 mb-4">
               <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
                 <div className="flex items-center gap-2 mb-1">
                   <Package className="w-4 h-4 text-blue-400" />
@@ -326,6 +343,14 @@ const InventoryManagement: React.FC = () => {
                   <span className="text-slate-400 text-xs">Out</span>
                 </div>
                 <div className="text-lg font-bold text-red-400">{stats.outOfStock}</div>
+              </div>
+
+              <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Tag className="w-4 h-4 text-orange-400" />
+                  <span className="text-slate-400 text-xs">Discounts</span>
+                </div>
+                <div className="text-lg font-bold text-orange-400">{stats.itemsWithDiscounts}</div>
               </div>
 
               <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
@@ -385,8 +410,9 @@ const InventoryManagement: React.FC = () => {
               <div className="space-y-2">
                 {filteredInventory.map(item => {
                   const status = getStockStatus(item);
-                  const profit = item.price - (item.cost || 0);
-                  const margin = item.cost ? ((profit / item.price) * 100) : 0;
+                  const effectivePrice = item.showDiscountOnMenu && item.discountPrice ? item.discountPrice : item.price;
+                  const profit = effectivePrice - (item.cost || 0);
+                  const margin = item.cost ? ((profit / effectivePrice) * 100) : 0;
 
                   return (
                     <div key={item.id} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-3 hover:bg-slate-800/70 transition-all">
@@ -396,6 +422,12 @@ const InventoryManagement: React.FC = () => {
                             <h3 className="text-white font-semibold text-sm truncate">{item.name}</h3>
                             {!item.available && (
                               <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded flex-shrink-0">Hidden</span>
+                            )}
+                            {item.showDiscountOnMenu && item.discountPrice && (
+                              <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded flex items-center gap-1 flex-shrink-0">
+                                <Tag className="w-3 h-3" />
+                                -{calculateDiscountPercentage(item.price, item.discountPrice)}%
+                              </span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 text-xs">
@@ -412,7 +444,14 @@ const InventoryManagement: React.FC = () => {
                           
                           <div className="text-right">
                             <div className="text-xs text-slate-500">Price</div>
-                            <div className="text-sm font-semibold text-white">{item.price}</div>
+                            {item.showDiscountOnMenu && item.discountPrice ? (
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-slate-500 line-through">{item.price}</span>
+                                <span className="text-sm font-semibold text-orange-400">{item.discountPrice}</span>
+                              </div>
+                            ) : (
+                              <div className="text-sm font-semibold text-white">{item.price}</div>
+                            )}
                           </div>
 
                           <div className="text-right">
@@ -635,6 +674,79 @@ const InventoryManagement: React.FC = () => {
                       </div>
                     </div>
                   )}
+                </div>
+
+                <div>
+                  <h3 className="text-white font-semibold text-sm mb-3 flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-orange-400" />
+                    Discount Settings
+                  </h3>
+                  <div className="space-y-3 p-3 bg-orange-500/5 rounded-lg border border-orange-500/20">
+                    <div>
+                      <label className="text-slate-300 text-xs mb-1.5 block">Discount Price (MT)</label>
+                      <input
+                        type="number"
+                        value={formData.discountPrice || ''}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          discountPrice: e.target.value ? parseFloat(e.target.value) : undefined 
+                        })}
+                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        min="0"
+                        step="0.01"
+                        placeholder="Leave empty for no discount"
+                      />
+                      {formData.discountPrice && formData.price && formData.discountPrice < formData.price && (
+                        <div className="mt-1.5 text-xs text-orange-400 flex items-center gap-1">
+                          <Percent className="w-3 h-3" />
+                          <span>{calculateDiscountPercentage(formData.price, formData.discountPrice)}% off regular price</span>
+                        </div>
+                      )}
+                      {formData.discountPrice && formData.price && formData.discountPrice >= formData.price && (
+                        <div className="mt-1.5 text-xs text-red-400">
+                          Discount price must be lower than regular price
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg border border-slate-700">
+                      <input
+                        type="checkbox"
+                        id="showDiscountOnMenu"
+                        checked={formData.showDiscountOnMenu}
+                        onChange={(e) => setFormData({ ...formData, showDiscountOnMenu: e.target.checked })}
+                        disabled={!formData.discountPrice || formData.discountPrice >= (formData.price || 0)}
+                        className="mt-0.5 w-4 h-4 rounded border-slate-600 text-orange-600 focus:ring-orange-500 disabled:opacity-50"
+                      />
+                      <label htmlFor="showDiscountOnMenu" className="text-slate-300 text-sm flex-1">
+                        <div className="font-medium flex items-center gap-2">
+                          Show discount on menu
+                          {formData.showDiscountOnMenu && (
+                            <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded">Active</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          When enabled, customers will see the discounted price on the menu
+                        </div>
+                      </label>
+                    </div>
+
+                    {formData.discountPrice && formData.showDiscountOnMenu && formData.cost && (
+                      <div className="p-2 bg-slate-700/50 rounded border border-slate-600">
+                        <div className="text-xs text-slate-400 mb-1">Discount Impact:</div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-slate-500">Regular Profit:</span>
+                            <span className="text-white font-semibold ml-2">{(formData.price - formData.cost).toFixed(2)} MT</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Discount Profit:</span>
+                            <span className="text-orange-400 font-semibold ml-2">{(formData.discountPrice - formData.cost).toFixed(2)} MT</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>
