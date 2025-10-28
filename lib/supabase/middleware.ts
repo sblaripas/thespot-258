@@ -37,6 +37,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const sessionCookie = request.cookies.get("user_session")
+  const isAuthenticated = !!sessionCookie
+
   const isPublicRoute =
     request.nextUrl.pathname === "/" ||
     request.nextUrl.pathname === "/menu" ||
@@ -49,6 +52,12 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/staff") ||
     request.nextUrl.pathname.startsWith("/pos") ||
     request.nextUrl.pathname.startsWith("/admin")
+
+  if (isStaffRoute && !isAuthenticated) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/auth/login"
+    return NextResponse.redirect(url)
+  }
 
   // Only require authentication for staff routes
   if (isStaffRoute && !user) {

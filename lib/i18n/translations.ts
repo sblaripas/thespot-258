@@ -106,6 +106,53 @@ export const translations = {
     walletNotFound: "Wallet not found",
     invalidCredentials: "Invalid credentials",
     sessionExpired: "Session expired",
+
+    // Restaurant specific
+    dineIn: "Dine In",
+    takeaway: "Takeaway",
+    delivery: "Delivery",
+    reservation: "Reservation",
+    partySize: "Party Size",
+    estimatedTime: "Estimated Time",
+
+    // Inventory
+    inStock: "In Stock",
+    outOfStock: "Out of Stock",
+    lowStock: "Low Stock",
+    stockCount: "Stock Count",
+
+    // Payment
+    payment: "Payment",
+    cash: "Cash",
+    card: "Card",
+    mobileMoney: "Mobile Money",
+    multicaixa: "Multicaixa",
+    bankTransfer: "Bank Transfer",
+    tip: "Tip",
+    change: "Change",
+
+    // Tax
+    tax: "Tax",
+    iva: "VAT",
+    taxIncluded: "Tax Included",
+    discount: "Discount",
+
+    // Time
+    minutes: "minutes",
+    hours: "hours",
+    days: "days",
+
+    // Provinces
+    maputo: "Maputo",
+    gaza: "Gaza",
+    inhambane: "Inhambane",
+    sofala: "Sofala",
+    manica: "Manica",
+    tete: "Tete",
+    zambezia: "Zambézia",
+    nampula: "Nampula",
+    caboDelgado: "Cabo Delgado",
+    niassa: "Niassa",
   },
   pt: {
     // Common
@@ -214,8 +261,55 @@ export const translations = {
     walletNotFound: "Carteira não encontrada",
     invalidCredentials: "Credenciais inválidas",
     sessionExpired: "Sessão expirada",
+
+    // Restaurant specific
+    dineIn: "Comer no Local",
+    takeaway: "Para Levar",
+    delivery: "Entrega",
+    reservation: "Reserva",
+    partySize: "Número de Pessoas",
+    estimatedTime: "Tempo Estimado",
+
+    // Inventory
+    inStock: "Em Stock",
+    outOfStock: "Sem Stock",
+    lowStock: "Stock Baixo",
+    stockCount: "Contagem de Stock",
+
+    // Payment
+    payment: "Pagamento",
+    cash: "Dinheiro",
+    card: "Cartão",
+    mobileMoney: "M-Pesa/E-Mola",
+    multicaixa: "Multicaixa",
+    bankTransfer: "Transferência Bancária",
+    tip: "Gorjeta",
+    change: "Troco",
+
+    // Tax
+    tax: "Imposto",
+    iva: "IVA",
+    taxIncluded: "IVA Incluído",
+    discount: "Desconto",
+
+    // Time
+    minutes: "minutos",
+    hours: "horas",
+    days: "dias",
+
+    // Provinces
+    maputo: "Maputo",
+    gaza: "Gaza",
+    inhambane: "Inhambane",
+    sofala: "Sofala",
+    manica: "Manica",
+    tete: "Tete",
+    zambezia: "Zambézia",
+    nampula: "Nampula",
+    caboDelgado: "Cabo Delgado",
+    niassa: "Niassa",
   },
 }
 
 export type Language = keyof typeof translations
-export type TranslationKey = keyof typeof translations.en
+export type TranslationKey = keyof (typeof translations)["en"]

@@ -9,6 +9,7 @@ import { QRCodeCard } from "@/components/wallet/qr-code-card"
 import { TransactionList } from "@/components/wallet/transaction-list"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getWalletByPhone, getWalletTransactions } from "./actions"
 
 interface WalletData {
   id: string
@@ -49,31 +50,26 @@ export default function WalletPage() {
     try {
       setLoading(true)
       setError(null)
-      const cleanPhone = clientPhone.replace(/\D/g, "")
 
-      const { data: walletData, error: walletError } = await supabase
-        .from("wallets")
-        .select("*")
-        .eq("client_phone", cleanPhone)
-        .single()
+      const { data: walletData, error: walletError } = await getWalletByPhone(clientPhone)
 
-      if (walletError && walletError.code !== "PGRST116") {
-        throw walletError
+      if (walletError) {
+        setError(walletError)
+        return
       }
 
       if (walletData) {
         setWallet(walletData)
-        const { data: transactionData, error: transactionError } = await supabase
-          .from("transactions")
-          .select("*")
-          .eq("wallet_id", walletData.id)
-          .order("created_at", { ascending: false })
-          .limit(10)
 
-        if (transactionError) throw transactionError
+        const { data: transactionData, error: transactionError } = await getWalletTransactions(walletData.id)
+
+        if (transactionError) {
+          console.error("Error fetching transactions:", transactionError)
+        }
+
         setTransactions(transactionData || [])
       } else {
-        setError(`No wallet found for phone number: ${cleanPhone}`)
+        setError(`No wallet found for phone number: ${clientPhone}`)
       }
     } catch (error) {
       console.error("Error fetching wallet data:", error)

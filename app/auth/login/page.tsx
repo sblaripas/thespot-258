@@ -2,40 +2,68 @@
 
 import type React from "react"
 
-import { createClient } from "@/lib/supabase/client"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { sendOTP, verifyOTP } from "./actions"
 
-export default function Page() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+export default function LoginPage() {
+  const [phone, setPhone] = useState("")
+  const [otp, setOtp] = useState("")
+  const [step, setStep] = useState<"phone" | "otp">("phone")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [devOtp, setDevOtp] = useState<string | null>(null)
   const router = useRouter()
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-        options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/staff`,
-        },
-      })
-      if (error) throw error
-      router.push("/staff")
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      const result = await sendOTP(phone)
+
+      if (result.success) {
+        setStep("otp")
+        if (result.otp) {
+          setDevOtp(result.otp)
+        }
+      } else {
+        setError(result.error || "Failed to send OTP")
+      }
+    } catch (error) {
+      setError("An unexpected error occurred")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const result = await verifyOTP(phone, otp)
+
+      if (result.success && result.user) {
+        // Redirect based on role
+        if (result.user.role === "admin") {
+          router.push("/admin")
+        } else if (result.user.role === "waiter" || result.user.role === "barman") {
+          router.push("/staff")
+        } else {
+          router.push("/")
+        }
+      } else {
+        setError(result.error || "Invalid OTP")
+      }
+    } catch (error) {
+      setError("An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
@@ -54,51 +82,84 @@ export default function Page() {
 
       <div className="flex min-h-[calc(100vh-120px)] w-full items-center justify-center p-6 md:p-10">
         <div className="w-full max-w-sm">
-          <div className="flex flex-col gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl">Staff Login</CardTitle>
-                <CardDescription>Enter your credentials to access the staff portal</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleLogin}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl">Login with Phone</CardTitle>
+              <CardDescription>
+                {step === "phone" ? "Enter your registered phone number" : "Enter your permanent OTP code"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {step === "phone" ? (
+                <form onSubmit={handleSendOTP}>
                   <div className="flex flex-col gap-6">
                     <div className="grid gap-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="phone">Phone Number</Label>
                       <Input
-                        id="email"
-                        type="email"
-                        placeholder="staff@thespot.mz"
+                        id="phone"
+                        type="tel"
+                        placeholder="+258 84 123 4567"
                         required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
                       />
                     </div>
                     {error && <p className="text-sm text-destructive">{error}</p>}
                     <Button type="submit" className="w-full" disabled={isLoading}>
-                      {isLoading ? "Logging in..." : "Login"}
+                      {isLoading ? "Checking..." : "Continue"}
                     </Button>
-                  </div>
-                  <div className="mt-4 text-center text-sm">
-                    Don&apos;t have an account?{" "}
-                    <Link href="/auth/sign-up" className="underline underline-offset-4">
-                      Sign up
-                    </Link>
+                    {process.env.NODE_ENV === "development" && (
+                      <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
+                        <p className="font-semibold mb-1">Test Accounts:</p>
+                        <p>Admin: +258840000001 (OTP: 111111)</p>
+                        <p>Waiter: +258841000001 (OTP: 333333)</p>
+                        <p>Customer: +258843000001 (OTP: 888888)</p>
+                      </div>
+                    )}
                   </div>
                 </form>
-              </CardContent>
-            </Card>
-          </div>
+              ) : (
+                <form onSubmit={handleVerifyOTP}>
+                  <div className="flex flex-col gap-6">
+                    <div className="grid gap-2">
+                      <Label htmlFor="otp">OTP Code</Label>
+                      <Input
+                        id="otp"
+                        type="text"
+                        placeholder="123456"
+                        required
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                      />
+                      {devOtp && (
+                        <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                          Your OTP: <span className="font-mono font-bold text-foreground">{devOtp}</span>
+                        </p>
+                      )}
+                    </div>
+                    {error && <p className="text-sm text-destructive">{error}</p>}
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? "Verifying..." : "Verify OTP"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full bg-transparent"
+                      onClick={() => {
+                        setStep("phone")
+                        setOtp("")
+                        setError(null)
+                        setDevOtp(null)
+                      }}
+                    >
+                      Change Phone Number
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

@@ -5,7 +5,18 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
+import { getCurrentUser, getAllUsers, createUser, updateUser, deleteUser } from "./actions"
 import {
   BarChart3,
   Users,
@@ -13,11 +24,11 @@ import {
   DollarSign,
   Package,
   AlertTriangle,
-  TrendingUp,
-  Calendar,
   Edit,
   Save,
   X,
+  Trash2,
+  UserPlus,
 } from "lucide-react"
 
 interface StaffUser {
@@ -70,23 +81,29 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [editingItem, setEditingItem] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<MenuItem>>({})
+  const [users, setUsers] = useState<any[]>([])
+  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<any | null>(null)
+  const [userForm, setUserForm] = useState({
+    phone: "",
+    name: "",
+    role: "customer",
+  })
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "menu">("dashboard")
   const supabase = createClient()
 
   useEffect(() => {
-    // Check if admin user is logged in
-    const storedUser = localStorage.getItem("staff_user")
-    if (storedUser) {
-      const user = JSON.parse(storedUser)
-      if (user.role === "admin") {
+    const checkAuth = async () => {
+      const user = await getCurrentUser()
+      if (user && user.role === "admin") {
         setStaffUser(user)
         fetchDashboardData()
+        fetchUsers()
       } else {
-        // Redirect non-admin users
-        window.location.href = "/staff"
+        window.location.href = "/auth/login"
       }
-    } else {
-      window.location.href = "/staff"
     }
+    checkAuth()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -203,6 +220,13 @@ export default function AdminPage() {
     }
   }
 
+  const fetchUsers = async () => {
+    const result = await getAllUsers()
+    if (result.success && result.users) {
+      setUsers(result.users)
+    }
+  }
+
   const startEditing = (item: MenuItem) => {
     setEditingItem(item.id)
     setEditForm({
@@ -236,6 +260,76 @@ export default function AdminPage() {
   const cancelEdit = () => {
     setEditingItem(null)
     setEditForm({})
+  }
+
+  const openUserDialog = (user?: any) => {
+    if (user) {
+      setEditingUser(user)
+      setUserForm({
+        phone: user.phone,
+        name: user.name,
+        role: user.role,
+      })
+    } else {
+      setEditingUser(null)
+      setUserForm({
+        phone: "",
+        name: "",
+        role: "customer",
+      })
+    }
+    setIsUserDialogOpen(true)
+  }
+
+  const closeUserDialog = () => {
+    setIsUserDialogOpen(false)
+    setEditingUser(null)
+    setUserForm({
+      phone: "",
+      name: "",
+      role: "customer",
+    })
+  }
+
+  const handleSaveUser = async () => {
+    try {
+      if (editingUser) {
+        const result = await updateUser(editingUser.id, userForm)
+        if (result.success) {
+          await fetchUsers()
+          closeUserDialog()
+        } else {
+          alert(result.error || "Failed to update user")
+        }
+      } else {
+        const result = await createUser(userForm)
+        if (result.success) {
+          await fetchUsers()
+          closeUserDialog()
+        } else {
+          alert(result.error || "Failed to create user")
+        }
+      }
+    } catch (error) {
+      console.error("Error saving user:", error)
+      alert("An unexpected error occurred")
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this user?")) return
+
+    try {
+      const result = await deleteUser(userId)
+      if (result.success) {
+        await fetchUsers()
+      } else {
+        alert(result.error || "Failed to delete user")
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error)
+      alert("An unexpected error occurred")
+    }
   }
 
   const formatCurrency = (amount: number) => `${amount} MT`
@@ -273,7 +367,7 @@ export default function AdminPage() {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h1 className="text-2xl md:text-3xl font-playfair font-bold text-primary">THE SPOT ADMIN</h1>
-              <p className="text-muted-foreground">Welcome, {staffUser.name}</p>
+              <p className="text-muted-foreground">Welcome, {staffUser?.name}</p>
             </div>
             <Button variant="outline" onClick={() => (window.location.href = "/staff")}>
               Back to Staff Portal
@@ -282,57 +376,171 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{formatCurrency(stats.totalRevenue)}</div>
-              <p className="text-xs text-muted-foreground">Today: {formatCurrency(stats.todayRevenue)}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.totalOrders}</div>
-              <p className="text-xs text-muted-foreground">Today: {stats.todayOrders}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Wallets</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.activeWallets}</div>
-              <p className="text-xs text-muted-foreground">Activated wallets</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">{stats.lowStockItems}</div>
-              <p className="text-xs text-muted-foreground">Need restocking</p>
-            </CardContent>
-          </Card>
+      {/* Tab Navigation */}
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex gap-2 border-b border-border">
+          <Button variant={activeTab === "dashboard" ? "default" : "ghost"} onClick={() => setActiveTab("dashboard")}>
+            Dashboard
+          </Button>
+          <Button variant={activeTab === "users" ? "default" : "ghost"} onClick={() => setActiveTab("users")}>
+            <Users className="w-4 h-4 mr-2" />
+            User Management
+          </Button>
+          <Button variant={activeTab === "menu" ? "default" : "ghost"} onClick={() => setActiveTab("menu")}>
+            <Package className="w-4 h-4 mr-2" />
+            Menu Management
+          </Button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Menu Management */}
-          <Card className="lg:col-span-2">
+      <main className="container mx-auto px-4 py-6">
+        {activeTab === "dashboard" && (
+          <>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-primary">{formatCurrency(stats.totalRevenue)}</div>
+                  <p className="text-xs text-muted-foreground">Today: {formatCurrency(stats.todayRevenue)}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+                  <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-primary">{stats.totalOrders}</div>
+                  <p className="text-xs text-muted-foreground">Today: {stats.todayOrders}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Wallets</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-primary">{stats.activeWallets}</div>
+                  <p className="text-xs text-muted-foreground">Activated wallets</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-destructive">{stats.lowStockItems}</div>
+                  <p className="text-xs text-muted-foreground">Need restocking</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recent Orders */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Recent Orders
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {recentOrders.map((order) => (
+                      <div key={order.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div>
+                          <p className="font-medium">Order #{order.id.slice(0, 8)}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {order.client_phone} • {formatDate(order.created_at)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">{formatCurrency(order.total_amount)}</p>
+                          <Badge
+                            variant={
+                              order.status === "confirmed"
+                                ? "default"
+                                : order.status === "pending_confirmation"
+                                  ? "secondary"
+                                  : "destructive"
+                            }
+                          >
+                            {order.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
+
+        {activeTab === "users" && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                User Management
+              </CardTitle>
+              <Button onClick={() => openUserDialog()}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add User
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {users.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{user.name}</h3>
+                        <Badge
+                          variant={
+                            user.role === "admin"
+                              ? "destructive"
+                              : user.role === "waiter" || user.role === "barman"
+                                ? "default"
+                                : "secondary"
+                          }
+                        >
+                          {user.role}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{user.phone}</p>
+                      <p className="text-xs text-muted-foreground">Created: {formatDate(user.created_at)}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openUserDialog(user)}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={user.role === "admin" && users.filter((u) => u.role === "admin").length === 1}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === "menu" && (
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
@@ -340,7 +548,7 @@ export default function AdminPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+              <div className="space-y-4">
                 {menuItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     {editingItem === item.id ? (
@@ -409,69 +617,63 @@ export default function AdminPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Recent Orders */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Recent Orders
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {recentOrders.map((order) => (
-                  <div key={order.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <div>
-                      <p className="font-medium">Order #{order.id.slice(0, 8)}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {order.client_phone} • {formatDate(order.created_at)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold">{formatCurrency(order.total_amount)}</p>
-                      <Badge
-                        variant={
-                          order.status === "confirmed"
-                            ? "default"
-                            : order.status === "pending_confirmation"
-                              ? "secondary"
-                              : "destructive"
-                        }
-                      >
-                        {order.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button variant="outline" className="h-20 flex flex-col gap-2 bg-transparent">
-                <TrendingUp className="w-6 h-6" />
-                <span>Generate Reports</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col gap-2 bg-transparent">
-                <Users className="w-6 h-6" />
-                <span>Manage Staff</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col gap-2 bg-transparent">
-                <Calendar className="w-6 h-6" />
-                <span>View Analytics</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        )}
       </main>
+
+      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
+            <DialogDescription>
+              {editingUser ? "Update user information" : "Create a new user account"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+258 84 123 4567"
+                value={userForm.phone}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                placeholder="John Doe"
+                value={userForm.name}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select
+                value={userForm.role}
+                onValueChange={(value) => setUserForm((prev) => ({ ...prev, role: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="waiter">Waiter</SelectItem>
+                  <SelectItem value="barman">Barman</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeUserDialog}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveUser}>{editingUser ? "Update" : "Create"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
