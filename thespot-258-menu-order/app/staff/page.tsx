@@ -1,0 +1,364 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { createClient } from "@/lib/supabase/client"
+import { QrCode, Plus, Users, LogOut, LayoutDashboard } from "lucide-react"
+import { QRCodeSVG } from "qrcode.react"
+import { useRouter } from "next/navigation"
+
+interface StaffUser {
+  id: string
+  phone: string
+  name: string
+  role: string
+}
+
+export default function StaffPage() {
+  const [phone, setPhone] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [loggedInUser, setLoggedInUser] = useState<StaffUser | null>(null)
+  const [generatedVoucher, setGeneratedVoucher] = useState<{ id: string; qr_code: string; amount: number } | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const supabase = createClient()
+  const router = useRouter()
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const storedUser = localStorage.getItem("staff_user")
+      if (storedUser) {
+        setLoggedInUser(JSON.parse(storedUser))
+      }
+    }
+
+    checkAuth()
+  }, [])
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      const { data: users, error: queryError } = await supabase
+        .from("users")
+        .select("id, phone, name, role")
+        .eq("phone", phone)
+        .eq("password", password)
+        .single()
+
+      if (queryError || !users) {
+        setError("Invalid phone number or password")
+        setIsLoading(false)
+        return
+      }
+
+      const staffUser: StaffUser = {
+        id: users.id,
+        phone: users.phone,
+        name: users.name,
+        role: users.role,
+      }
+
+      setLoggedInUser(staffUser)
+      localStorage.setItem("staff_user", JSON.stringify(staffUser))
+    } catch (error) {
+      console.error("Login error:", error)
+      setError("An error occurred during login")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const generateVoucher = async () => {
+    if (!loggedInUser || loggedInUser.role !== "teller") return
+
+    try {
+      setGenerating(true)
+      setError(null)
+
+      const voucherId = crypto.randomUUID()
+      const qrCode = `SPOT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+      const { data, error } = await supabase
+        .from("vouchers")
+        .insert({
+          id: voucherId,
+          qr_code: qrCode,
+          amount: 500,
+          status: "active",
+          issued_by: loggedInUser.phone,
+          issued_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setGeneratedVoucher({
+        id: data.id,
+        qr_code: data.qr_code,
+        amount: data.amount,
+      })
+    } catch (error) {
+      console.error("Error generating voucher:", error)
+      setError("Failed to generate voucher")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const logout = async () => {
+    setLoggedInUser(null)
+    setGeneratedVoucher(null)
+    setPhone("")
+    setPassword("")
+    localStorage.removeItem("staff_user")
+    router.push("/auth/login")
+  }
+
+  const goToDashboard = () => {
+    if (!loggedInUser) return
+
+    switch (loggedInUser.role) {
+      case "waiter":
+        router.push("/dashboard/waiter")
+        break
+      case "barman":
+        router.push("/dashboard/bartender")
+        break
+      case "admin":
+        router.push("/dashboard/manager")
+        break
+      default:
+        break
+    }
+  }
+
+  if (!loggedInUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-card">
+        <header className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm border-b border-border header-glow">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex flex-col items-center">
+              <Link href="/" className="transition-transform hover:scale-110 duration-300 cursor-pointer">
+                <Image src="/the-spot-logo.png" alt="The Spot Logo" width={350} height={140} className="h-20 w-auto" />
+              </Link>
+              <p className="text-muted-foreground mt-1">Staff Portal</p>
+            </div>
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4 py-8">
+          <Card className="max-w-md mx-auto">
+            <CardHeader>
+              <CardTitle className="text-center flex items-center gap-2 justify-center">
+                <Users className="w-6 h-6" />
+                Staff Login
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    type="tel"
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="84xxxxxxx"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    type="password"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter password"
+                    required
+                  />
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Logging in..." : "Login"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background to-card">
+      <header className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm border-b border-border header-glow">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/" className="transition-transform hover:scale-110 duration-300 cursor-pointer">
+                <Image src="/the-spot-logo.png" alt="The Spot Logo" width={280} height={112} className="h-16 w-auto" />
+              </Link>
+              <div>
+                <p className="text-muted-foreground">Welcome, {loggedInUser.name}</p>
+              </div>
+            </div>
+            <Button variant="outline" onClick={logout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {(loggedInUser.role === "waiter" || loggedInUser.role === "barman" || loggedInUser.role === "admin") && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LayoutDashboard className="w-6 h-6" />
+                  My Dashboard
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button className="w-full" onClick={goToDashboard}>
+                  Go to Dashboard
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {loggedInUser.role === "teller" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <QrCode className="w-6 h-6" />
+                  Generate Entry Voucher
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary mb-2">500 MT</div>
+                    <p className="text-muted-foreground">Entry Voucher Value</p>
+                  </div>
+
+                  {generatedVoucher ? (
+                    <div className="space-y-4">
+                      <div className="bg-white p-4 rounded-lg text-center">
+                        <QRCodeSVG
+                          value={`${window.location.origin}/scan?qr=${generatedVoucher.qr_code}`}
+                          size={200}
+                          level="M"
+                          includeMargin={true}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Voucher ID: {generatedVoucher.id.slice(0, 8)}...
+                        </p>
+                        <Button variant="outline" onClick={() => setGeneratedVoucher(null)}>
+                          Generate New Voucher
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button className="w-full" onClick={generateVoucher} disabled={generating}>
+                      {generating ? (
+                        <>
+                          <Plus className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Generate Voucher
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {(loggedInUser.role === "barman" ||
+                  loggedInUser.role === "waiter" ||
+                  loggedInUser.role === "admin") && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start bg-transparent"
+                    onClick={() => (window.location.href = "/pos")}
+                  >
+                    POS System
+                  </Button>
+                )}
+                {(loggedInUser.role === "waiter" || loggedInUser.role === "admin") && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start bg-transparent"
+                    onClick={() => (window.location.href = "/tables")}
+                  >
+                    Table Management
+                  </Button>
+                )}
+                {loggedInUser.role === "admin" && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start bg-transparent"
+                    onClick={() => (window.location.href = "/admin")}
+                  >
+                    Admin Dashboard
+                  </Button>
+                )}
+                <Button variant="outline" className="w-full justify-start bg-transparent">
+                  View Orders
+                </Button>
+                <Button variant="outline" className="w-full justify-start bg-transparent">
+                  Menu Management
+                </Button>
+                {loggedInUser.role === "admin" && (
+                  <>
+                    <Button variant="outline" className="w-full justify-start bg-transparent">
+                      Reports
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start bg-transparent">
+                      User Management
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {error && (
+          <Card className="mt-6 border-destructive">
+            <CardContent className="pt-6">
+              <p className="text-destructive text-center">{error}</p>
+            </CardContent>
+          </Card>
+        )}
+      </main>
+    </div>
+  )
+}
